@@ -1,10 +1,10 @@
 """
-P1 - Pydantic Models for request/response validation
+Nano-Insur - Pydantic Models for request/response validation
 """
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import uuid
 
@@ -22,12 +22,12 @@ class ClaimStatusEnum(str, Enum):
 
 class ClaimCreateRequest(BaseModel):
     """POST /claims - Create a new claim"""
-    user_name: str = Field(..., min_length=1, max_length=100, example="John Doe")
-    email: Optional[str] = Field(None, example="john@example.com")
-    phone: Optional[str] = Field(None, example="+1234567890")
-    description: str = Field(..., min_length=1, max_length=1000, example="Car accident on Highway 101")
+    user_name: str = Field(..., min_length=1, max_length=100, example="Rajesh Kumar")
+    email: Optional[str] = Field(None, example="rajesh@example.com")
+    phone: Optional[str] = Field(None, example="+91-9876543210")
+    description: str = Field(..., min_length=1, max_length=1000, example="Bike accident during delivery")
     document_base64: Optional[str] = Field(None, description="Base64 encoded document/receipt image")
-    amount_claimed: Optional[float] = Field(None, ge=0, example=1500.00)
+    amount_claimed: Optional[float] = Field(None, ge=0, example=25000.00)
 
 
 class ClaimUpdateRequest(BaseModel):
@@ -54,16 +54,20 @@ class ClaimResponse(BaseModel):
     reviewer_notes: Optional[str]
     created_at: str
     updated_at: str
+    coverage_expires_at: Optional[str] = None  # ✅ Added for 24h timer
+    coverage_active: Optional[bool] = None  # ✅ Is coverage still active?
 
     class Config:
         json_schema_extra = {
             "example": {
                 "claim_id": "CLM-abc12345",
-                "user_name": "John Doe",
+                "user_name": "Rajesh Kumar",
                 "status": "processing",
-                "amount_claimed": 1500.00,
-                "ocr_extracted_total": 1487.50,
-                "created_at": "2024-01-15T10:30:00Z"
+                "amount_claimed": 25000.00,
+                "ocr_extracted_total": 24500.00,
+                "created_at": "2024-01-15T10:30:00Z",
+                "coverage_expires_at": "2024-01-16T10:30:00Z",
+                "coverage_active": True
             }
         }
 
@@ -78,7 +82,7 @@ class ClaimListResponse(BaseModel):
 
 class WSMessage(BaseModel):
     """WebSocket message format"""
-    event: str  # "status_update", "new_claim", "heartbeat"
+    event: str  # "status_update", "new_claim", "heartbeat", "coverage_expired"
     data: dict
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
@@ -86,8 +90,10 @@ class WSMessage(BaseModel):
 # ─── Database Document ────────────────────────────────
 
 def create_claim_document(request: ClaimCreateRequest) -> dict:
-    """Create a MongoDB document from request"""
-    now = datetime.utcnow().isoformat() + "Z"
+    """Create a MongoDB document from request with 24h coverage timer"""
+    now = datetime.utcnow()
+    coverage_expiry = now + timedelta(hours=24)  # ✅ 24-hour coverage
+    
     return {
         "claim_id": f"CLM-{uuid.uuid4().hex[:8]}",
         "user_name": request.user_name,
@@ -95,11 +101,13 @@ def create_claim_document(request: ClaimCreateRequest) -> dict:
         "phone": request.phone,
         "description": request.description,
         "document_base64": request.document_base64,
-        "status": ClaimStatusEnum.UNINSURED.value,
+        "status": ClaimStatusEnum.PROTECTED.value,  # ✅ Start as protected (₹2 paid)
         "amount_claimed": request.amount_claimed,
         "ocr_extracted_total": None,
         "approved_amount": None,
         "reviewer_notes": None,
-        "created_at": now,
-        "updated_at": now,
+        "created_at": now.isoformat() + "Z",
+        "updated_at": now.isoformat() + "Z",
+        "coverage_expires_at": coverage_expiry.isoformat() + "Z",  # ✅ ISO string for TTL index
+        "coverage_active": True,
     }

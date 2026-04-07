@@ -1,7 +1,6 @@
 """
-P1 - Configuration Constants
+Nano-Insur - Configuration Constants
 All environment variables and app constants live here.
-P1 gives BASE_URL to P2 before T+0.
 """
 
 import os
@@ -13,29 +12,28 @@ load_dotenv()
 APP_NAME = "Nano-Insur"
 VERSION = "1.0.0"
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 8000))
+PORT = int(os.getenv("PORT", 8001))  # ✅ Fixed to 8001
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 # ─── MongoDB Atlas ────────────────────────────────────
-# Single collection, no TTL as specified
 MONGO_URI = os.getenv(
     "MONGO_URI",
-    "mongodb+srv://Soham:Soham24%40rane@cluster0.yhao69n.mongodb.net/nano_insurance?retryWrites=true&w=majority&appName=Cluster0"
+    os.getenv("MONGO_URL", "mongodb://localhost:27017/nano_insurance")
 )
-DB_NAME = os.getenv("DB_NAME", "insurance_hackathon")
-COLLECTION_NAME = "claims"  # 1 collection only
+DB_NAME = os.getenv("DB_NAME", "nano_insurance")
+COLLECTION_NAME = "claims"
 
 # ─── CORS ─────────────────────────────────────────────
 ALLOWED_ORIGINS = [
-    "*",  # Hackathon - allow all origins
+    "*",  # Allow all origins for development
 ]
 
 # ─── WebSocket ────────────────────────────────────────
 WS_HEARTBEAT_INTERVAL = 30  # seconds
 
 # ─── OCR Service ──────────────────────────────────────
-# P3's OCR function will be imported directly
 OCR_CONFIDENCE_THRESHOLD = 0.7
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # ─── Claim Status Flow ────────────────────────────────
 class ClaimStatus:
@@ -53,9 +51,14 @@ VALID_TRANSITIONS = {
     ClaimStatus.PROCESSING: [ClaimStatus.APPROVED, ClaimStatus.REJECTED],
 }
 
-# ─── BASE_URL (Railway will override) ─────────────────
-BASE_URL = os.getenv("RAILWAY_PUBLIC_DOMAIN", f"http://localhost:{PORT}")
+# ─── Coverage Timer (24 hours) ────────────────────────
+COVERAGE_DURATION_HOURS = 24
+
+# ─── BASE_URL ─────────────────────────────────────────
+BASE_URL = os.getenv("BASE_URL", f"http://localhost:{PORT}")
 if not BASE_URL.startswith("http"):
     BASE_URL = f"https://{BASE_URL}"
 
-print(f"[CONFIG] BASE_URL for P2: {BASE_URL}")
+print(f"[CONFIG] Nano-Insur API: {BASE_URL}")
+print(f"[CONFIG] Port: {PORT}")
+print(f"[CONFIG] MongoDB: {DB_NAME}")

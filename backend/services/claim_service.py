@@ -19,20 +19,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ─── Import P3's OCR function ─────────────────────────
-# P3's ocr.py sits in ../ai/ocr.py - we add it to path
-AI_PATH = os.path.join(os.path.dirname(__file__), '..', 'ai')
-sys.path.insert(0, AI_PATH)
-
+# ─── Import OCR function ─────────────────────────────
 try:
-    from ocr import extract_total
+    from ai.ocr import extract_total
     OCR_AVAILABLE = True
-    print("✅ OCR module loaded from P3")
-except ImportError:
+    print("✅ OCR module loaded successfully")
+except ImportError as e:
     OCR_AVAILABLE = False
-    print("⚠️  OCR module not available - using fallback")
+    print(f"⚠️  OCR module not available: {e}")
     def extract_total(image_base64: str) -> Optional[float]:
-        """Fallback if P3's OCR isn't ready yet"""
+        """Fallback if OCR isn't ready yet"""
         return None
 
 

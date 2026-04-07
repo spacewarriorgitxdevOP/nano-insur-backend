@@ -1,6 +1,6 @@
 """
-P1 - MongoDB Atlas Connection
-Single collection, no TTL as specified.
+Nano-Insur - MongoDB Atlas Connection
+Includes TTL index for 24-hour coverage expiration.
 """
 
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -36,8 +36,15 @@ class Database:
             await cls.claims_collection.create_index("status")
             await cls.claims_collection.create_index("created_at")
             
-            logger.info(f"✅ Connected to MongoDB Atlas - DB: {DB_NAME}")
-            print(f"✅ Connected to MongoDB Atlas - DB: {DB_NAME}")
+            # ✅ TTL Index for 24-hour coverage expiration - skip if exists
+            try:
+                await cls.claims_collection.create_index("coverage_expires_at")
+            except Exception:
+                pass  # Index already exists
+            
+            logger.info(f"✅ Connected to MongoDB - DB: {DB_NAME}")
+            print(f"✅ Connected to MongoDB - DB: {DB_NAME}")
+            print("✅ TTL Index created for 24h coverage expiration")
         except Exception as e:
             logger.error(f"❌ MongoDB connection failed: {e}")
             print(f"❌ MongoDB connection failed: {e}")

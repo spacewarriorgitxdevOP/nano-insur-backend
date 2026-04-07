@@ -144,6 +144,8 @@ async def delete_claim(claim_id: str):
     """Delete a claim (for demo/testing reset)."""
     deleted = await ClaimService.delete_claim(claim_id)
     if not deleted:
+        raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found")
+    return None
 
 
 # ─── NEW: Upload hospital bill ────────────────────────

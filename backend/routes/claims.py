@@ -173,46 +173,40 @@ async def upload_hospital_bill(claim_id: str, file: UploadFile = File(...)):
     if not result:
         raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found")
     
-    # ✅ FRAUD DETECTION: Compare OCR vs Claimed Amount
+    # ✅ VALIDATION: Exact Match or Reject (±2% tolerance for OCR errors)
     ocr_amount = result.get("ocr_extracted_total")
     claimed_amount = result.get("amount_claimed")
-    validation_status = "pending"
-    fraud_alert = False
+    validation_status = "rejected"
+    message = "Amount mismatch detected"
     
     if ocr_amount and claimed_amount:
         difference_percent = abs(ocr_amount - claimed_amount) / claimed_amount * 100
         
-        if difference_percent <= 10:  # Within 10% tolerance
+        if difference_percent <= 2:  # Only 2% tolerance for OCR reading errors
             validation_status = "verified"
-            fraud_alert = False
-        elif claimed_amount > ocr_amount * 1.5:  # Claimed 50% more than bill
-            validation_status = "rejected"
-            fraud_alert = True
+            message = "Bill verified - amounts match"
         else:
-            validation_status = "needs_review"
-            fraud_alert = False
+            validation_status = "rejected"
+            message = f"Bill rejected - Claimed ₹{claimed_amount} but bill shows ₹{ocr_amount}"
     
-    # Broadcast OCR result with validation
+    # Broadcast validation result
     await manager.broadcast({
-        "event": "bill_uploaded",
+        "event": "bill_validated",
         "data": {
             "claim_id": claim_id,
             "filename": file.filename,
-            "ocr_extracted_total": ocr_amount,
-            "claimed_amount": claimed_amount,
             "validation_status": validation_status,
-            "fraud_alert": fraud_alert,
-            "claim": result
+            "ocr_amount": ocr_amount,
+            "claimed_amount": claimed_amount,
+            "message": message
         }
     })
     
     return {
-        "message": "Hospital bill uploaded and validated",
+        "message": message,
         "filename": file.filename,
+        "validation_status": validation_status,
         "ocr_extracted_total": ocr_amount,
         "claimed_amount": claimed_amount,
-        "validation_status": validation_status,
-        "fraud_alert": fraud_alert,
-        "difference_percent": round(abs(ocr_amount - claimed_amount) / claimed_amount * 100, 2) if ocr_amount and claimed_amount else 0,
-        "claim": result
+        "verdict": "✅ VERIFIED" if validation_status == "verified" else "❌ REJECTED"
     }

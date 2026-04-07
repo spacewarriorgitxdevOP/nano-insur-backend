@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Import P3's OCR function ─────────────────────────
 # P3's ocr.py sits in ../ai/ocr.py - we add it to path
-AI_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'ai')
+AI_PATH = os.path.join(os.path.dirname(__file__), '..', 'ai')
 sys.path.insert(0, AI_PATH)
 
 try:

@@ -5,8 +5,9 @@ Route 2: GET    /claims          - List claims
 Route 3: PATCH  /claims/{id}     - Update claim status
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, File, UploadFile
 from typing import Optional
+import base64
 from models import (
     ClaimCreateRequest,
     ClaimUpdateRequest,
@@ -143,4 +144,49 @@ async def delete_claim(claim_id: str):
     """Delete a claim (for demo/testing reset)."""
     deleted = await ClaimService.delete_claim(claim_id)
     if not deleted:
+
+
+# ─── NEW: Upload hospital bill ────────────────────────
+
+@router.post("/{claim_id}/upload-bill")
+async def upload_hospital_bill(claim_id: str, file: UploadFile = File(...)):
+    """
+    Upload hospital bill document (PDF/JPG/PNG).
+    Automatically triggers OCR processing.
+    """
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/jpg", "application/pdf"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid file type. Allowed: JPG, PNG, PDF"
+        )
+    
+    # Read and encode file
+    contents = await file.read()
+    file_base64 = base64.b64encode(contents).decode('utf-8')
+    
+    # Process with OCR
+    result = await ClaimService.process_claim_ocr(claim_id, file_base64)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found")
+    
+    # Broadcast OCR result
+    await manager.broadcast({
+        "event": "bill_uploaded",
+        "data": {
+            "claim_id": claim_id,
+            "filename": file.filename,
+            "ocr_extracted_total": result.get("ocr_extracted_total"),
+            "claim": result
+        }
+    })
+    
+    return {
+        "message": "Hospital bill uploaded successfully",
+        "filename": file.filename,
+        "ocr_extracted_total": result.get("ocr_extracted_total"),
+        "claim": result
+    }
+
         raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found")

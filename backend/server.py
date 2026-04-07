@@ -21,6 +21,7 @@ from config import APP_NAME, VERSION, HOST, PORT, ALLOWED_ORIGINS, BASE_URL
 from database import Database
 from routes.claims import router as claims_router
 from routes.websocket import router as ws_router
+from routes.verification import router as verify_router
 
 # ─── Logging ──────────────────────────────────────────
 logging.basicConfig(
@@ -78,6 +79,9 @@ app.include_router(claims_router, prefix="/api/v1")
 
 # WebSocket: ws://BASE_URL/ws
 app.include_router(ws_router)
+
+# Verification: POST /api/v1/verify/*
+app.include_router(verify_router, prefix="/api/v1")
 
 
 # ─── Health Check ─────────────────────────────────────

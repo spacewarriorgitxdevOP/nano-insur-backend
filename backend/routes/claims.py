@@ -190,5 +190,3 @@ async def upload_hospital_bill(claim_id: str, file: UploadFile = File(...)):
         "ocr_extracted_total": result.get("ocr_extracted_total"),
         "claim": result
     }
-
-        raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found")

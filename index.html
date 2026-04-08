@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nano-Insur | Gig Protection</title>
+    <style>
+        :root { --primary: #00f5a0; --bg: #080d14; --card: #111d2b; --text: #e8f4f0; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; }
+        .page { display: none; padding: 20px; max-width: 500px; margin: auto; min-height: 100vh; }
+        .page.active { display: block; }
+        .card { background: var(--card); padding: 25px; border-radius: 20px; border: 1px solid rgba(0,245,160,0.1); margin-bottom: 20px; }
+        .btn { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #080d14; border: 1px solid #222; color: white; border-radius: 8px; box-sizing: border-box; }
+        .timeline { border-left: 2px solid var(--primary); padding-left: 20px; margin: 20px 0; }
+        .step { margin-bottom: 15px; opacity: 0.5; transition: 0.5s; }
+        .step.active { opacity: 1; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div id="pg-login" class="page active">
+        <h2>🛡️ Nano-Insur</h2>
+        <p>Gig-Worker Micro-Insurance Portal</p>
+        <div class="card">
+            <label>Phone Number</label>
+            <input type="tel" id="login-phone" placeholder="+91">
+            <button class="btn" onclick="login()">Login with OTP</button>
+        </div>
+    </div>
+
+    <div id="pg-dashboard" class="page">
+        <div style="display:flex; justify-content:space-between">
+            <h3>Dashboard</h3>
+            <span id="insur-status" style="color:var(--primary)">● Protected</span>
+        </div>
+        <div class="card" id="claims-list">
+            <p>No recent claims.</p>
+        </div>
+        <button class="btn" onclick="nav('pg-apply')">Apply for New Claim</button>
+        <button class="btn" style="background:transparent; color:white" onclick="nav('pg-login')">Logout</button>
+    </div>
+
+    <div id="pg-apply" class="page">
+        <h3>Submit Accident Claim</h3>
+        <div class="card">
+            <input type="text" id="gstin" placeholder="Hospital GSTIN">
+            <input type="text" id="docId" placeholder="Doctor License ID">
+            <input type="file" id="bill">
+            <button class="btn" onclick="processClaim()">Start AI Verification</button>
+        </div>
+        <div id="verif-box" class="card" style="display:none">
+            <div class="timeline">
+                <div class="step" id="s1">Scanning Bill via OCR...</div>
+                <div class="step" id="s2">Verifying GSTIN Registry...</div>
+                <div class="step" id="s3">Authenticating Doctor ID...</div>
+                <div class="step" id="s4">Approval Granted!</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pg-payout" class="page">
+        <h3>Instant Payout</h3>
+        <div class="card">
+            <p>Approved Amount: <strong id="appr-amt">₹0</strong></p>
+            <p>Your Claim ID: <strong id="res-claim-id" style="color:var(--primary)">-</strong></p>
+            <hr>
+            <input type="text" id="claim-id-verify" placeholder="Paste Claim ID here">
+            <input type="text" id="upi" placeholder="Enter UPI ID (e.g. name@okaxis)">
+            <button class="btn" onclick="payout()">Withdraw Money Now</button>
+        </div>
+        <div id="payout-success" class="card" style="display:none; border-color:var(--primary)">
+            <h4 style="color:var(--primary)">💰 Transfer Successful!</h4>
+            <p id="txn-text"></p>
+            <button class="btn" onclick="nav('pg-dashboard')">Back Home</button>
+        </div>
+    </div>
+
+    <script>
+        const API = "http://localhost:8000/api/v1";
+        let WORKER_ID = "";
+
+        function nav(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        async function login() {
+            const phone = document.getElementById('login-phone').value;
+            const res = await fetch(`${API}/auth/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone})
+            });
+            const data = await res.json();
+            WORKER_ID = data.worker_id;
+            nav('pg-dashboard');
+        }
+
+        async function processClaim() {
+            const formData = new FormData();
+            formData.append('file', document.getElementById('bill').files[0]);
+            
+            document.getElementById('verif-box').style.display = 'block';
+            const steps = ['s1','s2','s3','s4'];
+            for(let s of steps) {
+                await new Promise(r => setTimeout(r, 1200));
+                document.getElementById(s).classList.add('active');
+            }
+
+            const url = `${API}/claims/submit?worker_id=${WORKER_ID}&doctor_id=${document.getElementById('docId').value}&hospital_gst=${document.getElementById('gstin').value}`;
+            const res = await fetch(url, { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            document.getElementById('appr-amt').innerText = `₹${data.amount}`;
+            document.getElementById('res-claim-id').innerText = data.claim_id;
+            setTimeout(() => nav('pg-payout'), 1000);
+        }
+
+        async function payout() {
+            const res = await fetch(`${API}/payout/instant`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    claim_id: document.getElementById('claim-id-verify').value,
+                    upi_id: document.getElementById('upi').value
+                })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                document.getElementById('payout-success').style.display = 'block';
+                document.getElementById('txn-text').innerText = `Txn ID: ${data.txn_id}`;
+            }
+        }
+    </script>
+</body>
+</html>
